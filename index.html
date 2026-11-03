@@ -42,30 +42,28 @@
     <form id="absenceForm" onsubmit="enviarFormulario(event)">
       <label>Fecha inicial afectada</label>
       <input type="date" id="fechaInicio" required>
-      <label>Hora inicial afectada</label>
-      <input type="time" id="horaInicio" required>
+      
       <label>Fecha final afectada</label>
       <input type="date" id="fechaFin" required>
-      <label>Hora final afectada</label>
-      <input type="time" id="horaFin" required>
+      
       <label>El motivo corresponde a</label>
       <select id="motivo" required>
         <option value="">Seleccione un motivo...</option>
-        <option value="Salud">Salud</option>
+        <option value="Salud" selected>Salud</option>
         <option value="Citación Judicial">Citación Judicial</option>
         <option value="Otro">Otro</option>
       </select>
+      
       <label>Detalle de la situación</label>
       <textarea id="detalle" rows="3" required></textarea>
+      
       <label>Actividades para continuidad pedagógica</label>
       <select id="actividades" required>
         <option value="">Seleccione una opción...</option>
-        <option value="Enviadas a Preceptoría, Secretaría y Directivos">Enviadas a Preceptoría, Secretaría y Directivos</option>
+        <option value="Enviadas a Preceptoría, Secretaría y Directivos" selected>Enviadas a Preceptoría, Secretaría y Directivos</option>
         <option value="Subidas en la Plataforma">Subidas en la Plataforma</option>
         <option value="No aplica">No aplica</option>
       </select>
-      <label>Notas o aclaraciones adicionales</label>
-      <textarea id="notas" rows="2"></textarea>
       
       <button type="submit" id="submitBtn">Enviar Registro</button>
     </form>
@@ -87,7 +85,21 @@
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
 
-  document.addEventListener("DOMContentLoaded", () => { chequearUsuario(); });
+  document.addEventListener("DOMContentLoaded", () => { 
+    chequearUsuario(); 
+    cargarValoresPorDefecto();
+  });
+
+  function cargarValoresPorDefecto() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hoy = `${year}-${month}-${day}`;
+    
+    document.getElementById("fechaInicio").value = hoy;
+    document.getElementById("fechaFin").value = hoy;
+  }
 
   function chequearUsuario() {
     const apellido = localStorage.getItem("cef_apellido");
@@ -130,13 +142,13 @@
       apellido: localStorage.getItem("cef_apellido"),
       nombre: localStorage.getItem("cef_nombre"),
       fechaInicio: document.getElementById("fechaInicio").value,
-      horaInicio: document.getElementById("horaInicio").value,
+      horaInicio: "N/A", // Se envía N/A para no romper las columnas del Sheet
       fechaFin: document.getElementById("fechaFin").value,
-      horaFin: document.getElementById("horaFin").value,
+      horaFin: "N/A", // Se envía N/A para no romper las columnas del Sheet
       motivo: document.getElementById("motivo").value,
       detalle: document.getElementById("detalle").value,
       actividades: document.getElementById("actividades").value,
-      notas: document.getElementById("notas").value
+      notas: "N/A" // Se envía N/A para no romper las columnas del Sheet
     };
 
     fetch(SCRIPT_URL, {
@@ -148,6 +160,7 @@
       document.getElementById("screen2").classList.add("hidden");
       document.getElementById("successScreen").classList.remove("hidden");
       document.getElementById("absenceForm").reset();
+      cargarValoresPorDefecto(); // Restablece fechas predeterminadas tras enviar
       btn.disabled = false;
       btn.innerText = "Enviar Registro";
     })
