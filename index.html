@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Registro de Ausencias - CEF San Antonio de Padua</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+    h2 { text-align: center; color: #2c3e50; }
+    label { display: block; margin-top: 15px; font-weight: bold; font-size: 14px; }
+    input, select, textarea, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+    button { background-color: #3498db; color: white; border: none; font-weight: bold; font-size: 16px; margin-top: 25px; cursor: pointer; }
+    button:disabled { background-color: #95a5a6; }
+    .hidden { display: none; }
+    .success-msg { text-align: center; padding: 20px; border: 1px solid #2ecc71; background: #eafaf1; border-radius: 8px; margin-top: 15px;}
+    .docs-notice { margin-top: 15px; font-size: 14px; font-weight: bold; color: #c0392b; background: #fadbd8; padding: 15px; border-radius: 6px;}
+    .header-info { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; padding: 10px; border-radius: 6px; margin-bottom: 15px;}
+    .change-user { background: #e74c3c; width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Registro de Novedades y Ausencias</h2>
+  
+  <div id="screen1">
+    <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
+    <label>Apellido(s)</label>
+    <input type="text" id="loginApellido" required>
+    <label>Nombre(s)</label>
+    <input type="text" id="loginNombre" required>
+    <button onclick="guardarUsuario()">Ingresar</button>
+  </div>
+
+  <div id="screen2" class="hidden">
+    <div class="header-info">
+      <strong id="displayUserName"></strong>
+      <button class="change-user" onclick="cambiarUsuario()">Cambiar</button>
+    </div>
+
+    <form id="absenceForm" onsubmit="enviarFormulario(event)">
+      <label>Fecha inicial afectada</label>
+      <input type="date" id="fechaInicio" required>
+      <label>Hora inicial afectada</label>
+      <input type="time" id="horaInicio" required>
+      <label>Fecha final afectada</label>
+      <input type="date" id="fechaFin" required>
+      <label>Hora final afectada</label>
+      <input type="time" id="horaFin" required>
+      <label>El motivo corresponde a</label>
+      <select id="motivo" required>
+        <option value="">Seleccione un motivo...</option>
+        <option value="Salud">Salud</option>
+        <option value="Citación Judicial">Citación Judicial</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <label>Detalle de la situación</label>
+      <textarea id="detalle" rows="3" required></textarea>
+      <label>Actividades para continuidad pedagógica</label>
+      <select id="actividades" required>
+        <option value="">Seleccione una opción...</option>
+        <option value="Enviadas a Preceptoría, Secretaría y Directivos">Enviadas a Preceptoría, Secretaría y Directivos</option>
+        <option value="Subidas en la Plataforma">Subidas en la Plataforma</option>
+        <option value="No aplica">No aplica</option>
+      </select>
+      <label>Notas o aclaraciones adicionales</label>
+      <textarea id="notas" rows="2"></textarea>
+      
+      <button type="submit" id="submitBtn">Enviar Registro</button>
+    </form>
+  </div>
+
+  <div id="successScreen" class="hidden">
+    <div class="success-msg">
+      <h3 style="color:#27ae60; margin-top:0;">¡Registro enviado!</h3>
+      <p>Si es necesario, nos comunicaremos desde la Secretaría.</p>
+      <div class="docs-notice">
+        📌 SI ES PERTINENTE A SU MOTIVO:<br>Envíe ahora su documentación respaldatoria a<br>
+        <a href="mailto:secretariasecundaria@cef-sanantonio-pad.edu.ar">secretariasecundaria@cef-sanantonio-pad.edu.ar</a>
+      </div>
+      <button onclick="reiniciarApp()" style="margin-top: 20px;">Cargar otra novedad</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
+
+  document.addEventListener("DOMContentLoaded", () => { chequearUsuario(); });
+
+  function chequearUsuario() {
+    const apellido = localStorage.getItem("cef_apellido");
+    const nombre = localStorage.getItem("cef_nombre");
+    if (apellido && nombre) {
+      document.getElementById("screen1").classList.add("hidden");
+      document.getElementById("screen2").classList.remove("hidden");
+      document.getElementById("displayUserName").innerText = `${apellido}, ${nombre}`;
+    } else {
+      document.getElementById("screen1").classList.remove("hidden");
+      document.getElementById("screen2").classList.add("hidden");
+    }
+  }
+
+  function guardarUsuario() {
+    const ap = document.getElementById("loginApellido").value.trim();
+    const no = document.getElementById("loginNombre").value.trim();
+    if (ap && no) {
+      localStorage.setItem("cef_apellido", ap);
+      localStorage.setItem("cef_nombre", no);
+      chequearUsuario();
+    }
+  }
+
+  function cambiarUsuario() {
+    localStorage.removeItem("cef_apellido");
+    localStorage.removeItem("cef_nombre");
+    document.getElementById("loginApellido").value = "";
+    document.getElementById("loginNombre").value = "";
+    chequearUsuario();
+  }
+
+  function enviarFormulario(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    btn.innerText = "Enviando...";
+
+    const payload = {
+      apellido: localStorage.getItem("cef_apellido"),
+      nombre: localStorage.getItem("cef_nombre"),
+      fechaInicio: document.getElementById("fechaInicio").value,
+      horaInicio: document.getElementById("horaInicio").value,
+      fechaFin: document.getElementById("fechaFin").value,
+      horaFin: document.getElementById("horaFin").value,
+      motivo: document.getElementById("motivo").value,
+      detalle: document.getElementById("detalle").value,
+      actividades: document.getElementById("actividades").value,
+      notas: document.getElementById("notas").value
+    };
+
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    })
+    .then(() => {
+      document.getElementById("screen2").classList.add("hidden");
+      document.getElementById("successScreen").classList.remove("hidden");
+      document.getElementById("absenceForm").reset();
+      btn.disabled = false;
+      btn.innerText = "Enviar Registro";
+    })
+    .catch(() => {
+      alert("Error al conectar. Verifica tu internet e intenta de nuevo.");
+      btn.disabled = false;
+      btn.innerText = "Enviar Registro";
+    });
+  }
+
+  function reiniciarApp() {
+    document.getElementById("successScreen").classList.add("hidden");
+    chequearUsuario();
+  }
+</script>
+</body>
+</html>
