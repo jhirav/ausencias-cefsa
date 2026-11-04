@@ -26,10 +26,9 @@
   
   <div id="screen1">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
-    <label>Seleccione su nombre</label>
-    <select id="loginDocente" required>
-      <option value="">Cargando lista de docentes...</option>
-    </select>
+    <label>Busque y seleccione su nombre</label>
+    <input type="text" id="loginDocenteInput" list="docentesDatalist" placeholder="Cargando lista de docentes..." autocomplete="off" required disabled>
+    <datalist id="docentesDatalist"></datalist>
     <button onclick="guardarUsuario()" id="btnIngresar" disabled>Ingresar</button>
   </div>
 
@@ -84,6 +83,7 @@
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
+  let docentesData = []; // Variable para almacenar la lista consultada
 
   document.addEventListener("DOMContentLoaded", () => { 
     chequearUsuario(); 
@@ -105,18 +105,22 @@
     fetch(SCRIPT_URL, { redirect: "follow" })
       .then(response => response.json())
       .then(data => {
-        const select = document.getElementById("loginDocente");
-        select.innerHTML = '<option value="">Seleccione su nombre...</option>';
+        docentesData = data;
+        const datalist = document.getElementById("docentesDatalist");
+        datalist.innerHTML = '';
         data.forEach(docente => {
           const option = document.createElement("option");
-          option.value = JSON.stringify(docente);
-          option.text = `${docente.apellido}, ${docente.nombre}`;
-          select.appendChild(option);
+          option.value = `${docente.apellido}, ${docente.nombre}`;
+          datalist.appendChild(option);
         });
+        
+        const input = document.getElementById("loginDocenteInput");
+        input.disabled = false;
+        input.placeholder = "Escriba su apellido para buscar...";
         document.getElementById("btnIngresar").disabled = false;
       })
       .catch(() => {
-        document.getElementById("loginDocente").innerHTML = '<option value="">Error al cargar docentes</option>';
+        document.getElementById("loginDocenteInput").placeholder = "Error al cargar docentes";
       });
   }
 
@@ -135,19 +139,25 @@
   }
 
   function guardarUsuario() {
-    const select = document.getElementById("loginDocente");
-    if (!select.value) return;
+    const inputVal = document.getElementById("loginDocenteInput").value.trim();
+    if (!inputVal) return;
     
-    const docente = JSON.parse(select.value);
-    localStorage.setItem("cef_apellido", docente.apellido);
-    localStorage.setItem("cef_nombre", docente.nombre);
-    chequearUsuario();
+    // Busca si el texto ingresado coincide exactamente con alguna opción de la lista
+    const docenteEncontrado = docentesData.find(d => `${d.apellido}, ${d.nombre}` === inputVal);
+    
+    if (docenteEncontrado) {
+      localStorage.setItem("cef_apellido", docenteEncontrado.apellido);
+      localStorage.setItem("cef_nombre", docenteEncontrado.nombre);
+      chequearUsuario();
+    } else {
+      alert("Por favor, seleccione un nombre válido de la lista desplegable.");
+    }
   }
 
   function cambiarUsuario() {
     localStorage.removeItem("cef_apellido");
     localStorage.removeItem("cef_nombre");
-    document.getElementById("loginDocente").value = "";
+    document.getElementById("loginDocenteInput").value = "";
     chequearUsuario();
   }
 
