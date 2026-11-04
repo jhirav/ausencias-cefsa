@@ -26,11 +26,11 @@
   
   <div id="screen1">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
-    <label>Apellido(s)</label>
-    <input type="text" id="loginApellido" required>
-    <label>Nombre(s)</label>
-    <input type="text" id="loginNombre" required>
-    <button onclick="guardarUsuario()">Ingresar</button>
+    <label>Seleccione su nombre</label>
+    <select id="loginDocente" required>
+      <option value="">Cargando lista de docentes...</option>
+    </select>
+    <button onclick="guardarUsuario()" id="btnIngresar" disabled>Ingresar</button>
   </div>
 
   <div id="screen2" class="hidden">
@@ -101,6 +101,25 @@
     document.getElementById("fechaFin").value = hoy;
   }
 
+  function cargarListaDocentes() {
+    fetch(SCRIPT_URL, { redirect: "follow" })
+      .then(response => response.json())
+      .then(data => {
+        const select = document.getElementById("loginDocente");
+        select.innerHTML = '<option value="">Seleccione su nombre...</option>';
+        data.forEach(docente => {
+          const option = document.createElement("option");
+          option.value = JSON.stringify(docente);
+          option.text = `${docente.apellido}, ${docente.nombre}`;
+          select.appendChild(option);
+        });
+        document.getElementById("btnIngresar").disabled = false;
+      })
+      .catch(() => {
+        document.getElementById("loginDocente").innerHTML = '<option value="">Error al cargar docentes</option>';
+      });
+  }
+
   function chequearUsuario() {
     const apellido = localStorage.getItem("cef_apellido");
     const nombre = localStorage.getItem("cef_nombre");
@@ -111,24 +130,24 @@
     } else {
       document.getElementById("screen1").classList.remove("hidden");
       document.getElementById("screen2").classList.add("hidden");
+      cargarListaDocentes();
     }
   }
 
   function guardarUsuario() {
-    const ap = document.getElementById("loginApellido").value.trim();
-    const no = document.getElementById("loginNombre").value.trim();
-    if (ap && no) {
-      localStorage.setItem("cef_apellido", ap);
-      localStorage.setItem("cef_nombre", no);
-      chequearUsuario();
-    }
+    const select = document.getElementById("loginDocente");
+    if (!select.value) return;
+    
+    const docente = JSON.parse(select.value);
+    localStorage.setItem("cef_apellido", docente.apellido);
+    localStorage.setItem("cef_nombre", docente.nombre);
+    chequearUsuario();
   }
 
   function cambiarUsuario() {
     localStorage.removeItem("cef_apellido");
     localStorage.removeItem("cef_nombre");
-    document.getElementById("loginApellido").value = "";
-    document.getElementById("loginNombre").value = "";
+    document.getElementById("loginDocente").value = "";
     chequearUsuario();
   }
 
@@ -142,13 +161,13 @@
       apellido: localStorage.getItem("cef_apellido"),
       nombre: localStorage.getItem("cef_nombre"),
       fechaInicio: document.getElementById("fechaInicio").value,
-      horaInicio: "N/A", // Se envía N/A para no romper las columnas del Sheet
+      horaInicio: "N/A", 
       fechaFin: document.getElementById("fechaFin").value,
-      horaFin: "N/A", // Se envía N/A para no romper las columnas del Sheet
+      horaFin: "N/A", 
       motivo: document.getElementById("motivo").value,
       detalle: document.getElementById("detalle").value,
       actividades: document.getElementById("actividades").value,
-      notas: "N/A" // Se envía N/A para no romper las columnas del Sheet
+      notas: "N/A" 
     };
 
     fetch(SCRIPT_URL, {
@@ -160,7 +179,7 @@
       document.getElementById("screen2").classList.add("hidden");
       document.getElementById("successScreen").classList.remove("hidden");
       document.getElementById("absenceForm").reset();
-      cargarValoresPorDefecto(); // Restablece fechas predeterminadas tras enviar
+      cargarValoresPorDefecto(); 
       btn.disabled = false;
       btn.innerText = "Enviar Registro";
     })
