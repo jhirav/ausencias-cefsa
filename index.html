@@ -6,17 +6,25 @@
   <title>Registro de Ausencias - CEF San Antonio de Padua</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
-    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; position: relative; }
     h2 { text-align: center; color: #2c3e50; }
     label { display: block; margin-top: 15px; font-weight: bold; font-size: 14px; }
-    input, select, textarea, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
-    button { background-color: #3498db; color: white; border: none; font-weight: bold; font-size: 16px; margin-top: 25px; cursor: pointer; }
+    input, select, textarea, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+    button { background-color: #3498db; color: white; border: none; font-weight: bold; margin-top: 25px; cursor: pointer; }
     button:disabled { background-color: #95a5a6; }
     .hidden { display: none; }
     .success-msg { text-align: center; padding: 20px; border: 1px solid #2ecc71; background: #eafaf1; border-radius: 8px; margin-top: 15px;}
     .docs-notice { margin-top: 15px; font-size: 14px; font-weight: bold; color: #c0392b; background: #fadbd8; padding: 15px; border-radius: 6px;}
     .header-info { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; padding: 10px; border-radius: 6px; margin-bottom: 15px;}
     .change-user { background: #e74c3c; width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+    
+    /* Estilos para el buscador personalizado en celulares */
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list { position: absolute; border: 1px solid #ccc; border-top: none; z-index: 999; top: 100%; left: 0; right: 0; background: #fff; max-height: 200px; overflow-y: auto; margin: 0; padding: 0; list-style: none; border-radius: 0 0 6px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .autocomplete-list li { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; }
+    .autocomplete-list li:hover { background-color: #f1f1f1; }
+    
+    .instructivo-link { display: block; text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; color: #2980b9; text-decoration: none; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -27,8 +35,10 @@
   <div id="screen1">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
     <label>Busque y seleccione su nombre</label>
-    <input type="text" id="loginDocenteInput" list="docentesDatalist" placeholder="Cargando lista de docentes..." autocomplete="off" required disabled>
-    <datalist id="docentesDatalist"></datalist>
+    <div class="autocomplete-wrapper">
+      <input type="text" id="loginDocenteInput" placeholder="Cargando lista de docentes..." autocomplete="off" disabled>
+      <ul id="autocompleteList" class="autocomplete-list hidden"></ul>
+    </div>
     <button onclick="guardarUsuario()" id="btnIngresar" disabled>Ingresar</button>
   </div>
 
@@ -79,16 +89,75 @@
       <button onclick="reiniciarApp()" style="margin-top: 20px;">Cargar otra novedad</button>
     </div>
   </div>
+
+  <a href="https://docs.google.com/document/d/1tw7IHf2ocXgmhPdLGhI9QkKkkJ7TaPxZALZ2O0TegEs/edit?usp=drivesdk" target="_blank" class="instructivo-link">📖 Ver Instructivo de uso</a>
 </div>
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
-  let docentesData = []; // Variable para almacenar la lista consultada
+  let docentesData = []; 
+  let docenteSeleccionado = null;
 
   document.addEventListener("DOMContentLoaded", () => { 
     chequearUsuario(); 
     cargarValoresPorDefecto();
+    configurarEventos();
   });
+
+  function configurarEventos() {
+    // Sincronizar fecha inicio con fecha fin
+    document.getElementById("fechaInicio").addEventListener("change", function() {
+      document.getElementById("fechaFin").value = this.value;
+    });
+
+    // Buscador personalizado
+    const input = document.getElementById("loginDocenteInput");
+    const list = document.getElementById("autocompleteList");
+
+    input.addEventListener("input", function() {
+      list.innerHTML = "";
+      docenteSeleccionado = null;
+      document.getElementById("btnIngresar").disabled = true;
+      
+      const val = this.value;
+      if (!val) {
+        list.classList.add("hidden");
+        return;
+      }
+      
+      list.classList.remove("hidden");
+      const textoBuscado = normalizarTexto(val);
+      
+      const coincidencias = docentesData.filter(d => {
+        const nombreCompleto = normalizarTexto(`${d.apellido}, ${d.nombre}`);
+        return nombreCompleto.includes(textoBuscado);
+      });
+
+      coincidencias.forEach(d => {
+        const li = document.createElement("li");
+        li.innerText = `${d.apellido}, ${d.nombre}`;
+        li.onclick = function() {
+          input.value = this.innerText;
+          docenteSeleccionado = d;
+          list.classList.add("hidden");
+          document.getElementById("btnIngresar").disabled = false;
+        };
+        list.appendChild(li);
+      });
+    });
+
+    // Cerrar lista si se hace clic afuera
+    document.addEventListener("click", function(e) {
+      if (e.target !== input) {
+        list.classList.add("hidden");
+      }
+    });
+  }
+
+  // Quita acentos y pasa a minúsculas
+  function normalizarTexto(texto) {
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
 
   function cargarValoresPorDefecto() {
     const d = new Date();
@@ -106,18 +175,9 @@
       .then(response => response.json())
       .then(data => {
         docentesData = data;
-        const datalist = document.getElementById("docentesDatalist");
-        datalist.innerHTML = '';
-        data.forEach(docente => {
-          const option = document.createElement("option");
-          option.value = `${docente.apellido}, ${docente.nombre}`;
-          datalist.appendChild(option);
-        });
-        
         const input = document.getElementById("loginDocenteInput");
         input.disabled = false;
         input.placeholder = "Escriba su apellido para buscar...";
-        document.getElementById("btnIngresar").disabled = false;
       })
       .catch(() => {
         document.getElementById("loginDocenteInput").placeholder = "Error al cargar docentes";
@@ -139,18 +199,12 @@
   }
 
   function guardarUsuario() {
-    const inputVal = document.getElementById("loginDocenteInput").value.trim();
-    if (!inputVal) return;
-    
-    // Busca si el texto ingresado coincide exactamente con alguna opción de la lista
-    const docenteEncontrado = docentesData.find(d => `${d.apellido}, ${d.nombre}` === inputVal);
-    
-    if (docenteEncontrado) {
-      localStorage.setItem("cef_apellido", docenteEncontrado.apellido);
-      localStorage.setItem("cef_nombre", docenteEncontrado.nombre);
+    if (docenteSeleccionado) {
+      localStorage.setItem("cef_apellido", docenteSeleccionado.apellido);
+      localStorage.setItem("cef_nombre", docenteSeleccionado.nombre);
       chequearUsuario();
     } else {
-      alert("Por favor, seleccione un nombre válido de la lista desplegable.");
+      alert("Por favor, seleccione su nombre de la lista desplegable.");
     }
   }
 
@@ -158,6 +212,8 @@
     localStorage.removeItem("cef_apellido");
     localStorage.removeItem("cef_nombre");
     document.getElementById("loginDocenteInput").value = "";
+    docenteSeleccionado = null;
+    document.getElementById("btnIngresar").disabled = true;
     chequearUsuario();
   }
 
@@ -171,13 +227,13 @@
       apellido: localStorage.getItem("cef_apellido"),
       nombre: localStorage.getItem("cef_nombre"),
       fechaInicio: document.getElementById("fechaInicio").value,
-      horaInicio: "N/A", 
+      horaInicio: "N/A", // Se mantiene internamente para no desarmar el Google Sheets
       fechaFin: document.getElementById("fechaFin").value,
-      horaFin: "N/A", 
+      horaFin: "N/A",    // Se mantiene internamente para no desarmar el Google Sheets
       motivo: document.getElementById("motivo").value,
       detalle: document.getElementById("detalle").value,
       actividades: document.getElementById("actividades").value,
-      notas: "N/A" 
+      notas: "N/A"
     };
 
     fetch(SCRIPT_URL, {
