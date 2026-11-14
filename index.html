@@ -54,7 +54,7 @@
   <!-- PANTALLA 1: INGRESO -->
   <div id="screen1" class="hidden">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
-    <label>Busque y seleccione su nombre</label>
+    <label>Busque por apellido o nombre</label>
     <div class="autocomplete-wrapper">
       <input type="text" id="loginDocenteInput" placeholder="Cargando lista de docentes..." autocomplete="off" disabled>
       <ul id="autocompleteList" class="autocomplete-list hidden"></ul>
@@ -131,17 +131,15 @@
       .then(data => {
         document.getElementById("loadingScreen").classList.add("hidden");
         
-        // Si desde el Google Sheets pusimos "SI" en Mantenimiento
         if (data.mantenimiento === true) {
           document.getElementById("maintenanceScreen").classList.remove("hidden");
           document.getElementById("linkInstructivo").classList.add("hidden");
         } else {
-          // El sistema está activo
           docentesData = data.docentes;
           
           const input = document.getElementById("loginDocenteInput");
           input.disabled = false;
-          input.placeholder = "Escriba su apellido para buscar...";
+          input.placeholder = "Escriba su nombre o apellido...";
           
           chequearUsuario(); 
           cargarValoresPorDefecto();
@@ -155,8 +153,20 @@
   }
 
   function configurarEventos() {
-    document.getElementById("fechaInicio").addEventListener("change", function() {
-      document.getElementById("fechaFin").value = this.value;
+    const inputInicio = document.getElementById("fechaInicio");
+    const inputFin = document.getElementById("fechaFin");
+
+    // Sincronizar fecha fin y bloquear fechas anteriores a la inicial
+    inputInicio.addEventListener("change", function() {
+      inputFin.min = this.value;
+      inputFin.value = this.value;
+    });
+
+    inputFin.addEventListener("change", function() {
+      if (this.value < inputInicio.value) {
+        alert("La fecha final no puede ser anterior a la fecha inicial.");
+        this.value = inputInicio.value;
+      }
     });
 
     const input = document.getElementById("loginDocenteInput");
@@ -167,25 +177,28 @@
       docenteSeleccionado = null;
       document.getElementById("btnIngresar").disabled = true;
       
-      const val = this.value;
+      const val = this.value.trim();
       if (!val) {
         list.classList.add("hidden");
         return;
       }
       
       list.classList.remove("hidden");
-      const textoBuscado = normalizarTexto(val);
+      // Permite buscar por varias palabras en cualquier orden (ej. "Juan Ruiz" o "Ruiz Juan")
+      const palabrasBuscadas = normalizarTexto(val).split(/\s+/);
       
       const coincidencias = docentesData.filter(d => {
-        const nombreCompleto = normalizarTexto(`${d.apellido}, ${d.nombre}`);
-        return nombreCompleto.includes(textoBuscado);
+        const etiqueta = d.nombreCompleto || `${d.apellido}, ${d.nombre}`;
+        const textoDocente = normalizarTexto(etiqueta);
+        return palabrasBuscadas.every(palabra => textoDocente.includes(palabra));
       });
 
       coincidencias.forEach(d => {
         const li = document.createElement("li");
-        li.innerText = `${d.apellido}, ${d.nombre}`;
+        const etiqueta = d.nombreCompleto || `${d.apellido}, ${d.nombre}`;
+        li.innerText = etiqueta;
         li.onclick = function() {
-          input.value = this.innerText;
+          input.value = etiqueta;
           docenteSeleccionado = d;
           list.classList.add("hidden");
           document.getElementById("btnIngresar").disabled = false;
@@ -212,17 +225,34 @@
     const day = String(d.getDate()).padStart(2, '0');
     const hoy = `${year}-${month}-${day}`;
     
-    document.getElementById("fechaInicio").value = hoy;
-    document.getElementById("fechaFin").value = hoy;
+    const inputInicio = document.getElementById("fechaInicio");
+    const inputFin = document.getElementById("fechaFin");
+    inputInicio.value = hoy;
+    inputFin.value = hoy;
+    inputFin.min = hoy; // Bloquea fechas anteriores desde el arranque
+  }
+
+  function obtenerNombreGuardado() {
+    const unificado = localStorage.getItem("cef_apellido_nombre");
+    if (unificado) return unificado;
+    
+    // Compatibilidad con usuarios que ya habían iniciado sesión en la versión anterior
+    const ap = localStorage.getItem("cef_apellido");
+    const no = localStorage.getItem("cef_nombre");
+    if (ap && no) {
+      const combinado = `${ap}, ${no}`;
+      localStorage.setItem("cef_apellido_nombre", combinado);
+      return combinado;
+    }
+    return null;
   }
 
   function chequearUsuario() {
-    const apellido = localStorage.getItem("cef_apellido");
-    const nombre = localStorage.getItem("cef_nombre");
-    if (apellido && nombre) {
+    const nombreUnificado = obtenerNombreGuardado();
+    if (nombreUnificado) {
       document.getElementById("screen1").classList.add("hidden");
       document.getElementById("screen2").classList.remove("hidden");
-      document.getElementById("displayUserName").innerText = `${apellido}, ${nombre}`;
+      document.getElementById("displayUserName").innerText = nombreUnificado;
     } else {
       document.getElementById("screen1").classList.remove("hidden");
       document.getElementById("screen2").classList.add("hidden");
@@ -231,6 +261,8 @@
 
   function guardarUsuario() {
     if (docenteSeleccionado) {
+      const etiqueta = docenteSeleccionado.nombreCompleto || `${docenteSeleccionado.apellido}, ${docenteSeleccionado.nombre}`;
+      localStorage.setItem("cef_apellido_nombre", etiqueta);
       localStorage.setItem("cef_apellido", docenteSeleccionado.apellido);
       localStorage.setItem("cef_nombre", docenteSeleccionado.nombre);
       chequearUsuario();
@@ -240,6 +272,7 @@
   }
 
   function cambiarUsuario() {
+    localStorage.removeItem("cef_apellido_nombre");
     localStorage.removeItem("cef_apellido");
     localStorage.removeItem("cef_nombre");
     document.getElementById("loginDocenteInput").value = "";
@@ -248,23 +281,45 @@
     chequearUsuario();
   }
 
+  function tieneDiasHabiles(inicioStr, finStr) {
+    const p1 = inicioStr.split('-');
+    const p2 = finStr.split('-');
+    let actual = new Date(Number(p1[0]), Number(p1[1]) - 1, Number(p1[2]));
+    const fin = new Date(Number(p2[0]), Number(p2[1]) - 1, Number(p2[2]));
+    while (actual <= fin) {
+      const dia = actual.getDay();
+      if (dia !== 0 && dia !== 6) return true;
+      actual.setDate(actual.getDate() + 1);
+    }
+    return false;
+  }
+
   function enviarFormulario(e) {
     e.preventDefault();
+    const fInicio = document.getElementById("fechaInicio").value;
+    const fFin = document.getElementById("fechaFin").value;
+
+    if (fFin < fInicio) {
+      alert("La fecha final no puede ser anterior a la fecha inicial.");
+      return;
+    }
+
+    if (!tieneDiasHabiles(fInicio, fFin)) {
+      alert("El rango seleccionado solo incluye fines de semana. Seleccione al menos un día hábil.");
+      return;
+    }
+
     const btn = document.getElementById("submitBtn");
     btn.disabled = true;
     btn.innerText = "Enviando...";
 
     const payload = {
-      apellido: localStorage.getItem("cef_apellido"),
-      nombre: localStorage.getItem("cef_nombre"),
-      fechaInicio: document.getElementById("fechaInicio").value,
-      horaInicio: "N/A", 
-      fechaFin: document.getElementById("fechaFin").value,
-      horaFin: "N/A", 
+      apellidoNombre: obtenerNombreGuardado(),
+      fechaInicio: fInicio,
+      fechaFin: fFin,
       motivo: document.getElementById("motivo").value,
       detalle: document.getElementById("detalle").value,
-      actividades: document.getElementById("actividades").value,
-      notas: "N/A"
+      actividades: document.getElementById("actividades").value
     };
 
     fetch(SCRIPT_URL, {
