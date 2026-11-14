@@ -12,7 +12,7 @@
     input, select, textarea, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
     button { background-color: #3498db; color: white; border: none; font-weight: bold; margin-top: 25px; cursor: pointer; }
     button:disabled { background-color: #95a5a6; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     .success-msg { text-align: center; padding: 20px; border: 1px solid #2ecc71; background: #eafaf1; border-radius: 8px; margin-top: 15px;}
     .docs-notice { margin-top: 15px; font-size: 14px; font-weight: bold; color: #c0392b; background: #fadbd8; padding: 15px; border-radius: 6px;}
     .header-info { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; padding: 10px; border-radius: 6px; margin-bottom: 15px;}
@@ -25,7 +25,6 @@
     
     .instructivo-link { display: block; text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; color: #2980b9; text-decoration: none; font-weight: bold; }
     
-    /* Estilos del cartel de mantenimiento */
     .maintenance-msg { text-align: center; padding: 30px 20px; border: 2px solid #f39c12; background: #fdf2e9; border-radius: 8px; margin-top: 15px; }
     .maintenance-msg h3 { color: #d35400; margin-top: 0; font-size: 20px; }
     .maintenance-btn { display: inline-block; margin-top: 20px; padding: 12px 20px; background-color: #3498db; color: white; text-decoration: none; font-weight: bold; border-radius: 6px; }
@@ -36,6 +35,12 @@
 <div class="container">
   <h2>Registro de Novedades y Ausencias</h2>
   
+  <!-- PANTALLA DE CARGA INICIAL -->
+  <div id="loadingScreen" class="maintenance-msg" style="border-color: #3498db; background: #eaf2f8;">
+    <h3 style="color: #2980b9;">⏳ Conectando al sistema...</h3>
+    <p>Aguarde un momento por favor.</p>
+  </div>
+
   <!-- PANTALLA DE MANTENIMIENTO -->
   <div id="maintenanceScreen" class="hidden">
     <div class="maintenance-msg">
@@ -46,7 +51,8 @@
     </div>
   </div>
 
-  <div id="screen1">
+  <!-- PANTALLA 1: INGRESO -->
+  <div id="screen1" class="hidden">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
     <label>Busque y seleccione su nombre</label>
     <div class="autocomplete-wrapper">
@@ -56,6 +62,7 @@
     <button onclick="guardarUsuario()" id="btnIngresar" disabled>Ingresar</button>
   </div>
 
+  <!-- PANTALLA 2: FORMULARIO -->
   <div id="screen2" class="hidden">
     <div class="header-info">
       <strong id="displayUserName"></strong>
@@ -92,6 +99,7 @@
     </form>
   </div>
 
+  <!-- PANTALLA ÉXITO -->
   <div id="successScreen" class="hidden">
     <div class="success-msg">
       <h3 style="color:#27ae60; margin-top:0;">¡Registro enviado!</h3>
@@ -109,28 +117,42 @@
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
-  
-  // =========================================================================
-  // MODO MANTENIMIENTO: Cambiar a 'true' para cerrar el sistema temporalmente
-  // =========================================================================
-  const EN_MANTENIMIENTO = true; 
 
   let docentesData = []; 
   let docenteSeleccionado = null;
 
   document.addEventListener("DOMContentLoaded", () => { 
-    if (EN_MANTENIMIENTO) {
-      document.getElementById("screen1").classList.add("hidden");
-      document.getElementById("screen2").classList.add("hidden");
-      document.getElementById("successScreen").classList.add("hidden");
-      document.getElementById("linkInstructivo").classList.add("hidden");
-      document.getElementById("maintenanceScreen").classList.remove("hidden");
-    } else {
-      chequearUsuario(); 
-      cargarValoresPorDefecto();
-      configurarEventos();
-    }
+    conectarConServidor();
   });
+
+  function conectarConServidor() {
+    fetch(SCRIPT_URL, { redirect: "follow" })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById("loadingScreen").classList.add("hidden");
+        
+        // Si desde el Google Sheets pusimos "SI" en Mantenimiento
+        if (data.mantenimiento === true) {
+          document.getElementById("maintenanceScreen").classList.remove("hidden");
+          document.getElementById("linkInstructivo").classList.add("hidden");
+        } else {
+          // El sistema está activo
+          docentesData = data.docentes;
+          
+          const input = document.getElementById("loginDocenteInput");
+          input.disabled = false;
+          input.placeholder = "Escriba su apellido para buscar...";
+          
+          chequearUsuario(); 
+          cargarValoresPorDefecto();
+          configurarEventos();
+        }
+      })
+      .catch(() => {
+        document.getElementById("loadingScreen").classList.add("hidden");
+        alert("Error de conexión. Intente actualizar la página.");
+      });
+  }
 
   function configurarEventos() {
     document.getElementById("fechaInicio").addEventListener("change", function() {
@@ -194,20 +216,6 @@
     document.getElementById("fechaFin").value = hoy;
   }
 
-  function cargarListaDocentes() {
-    fetch(SCRIPT_URL, { redirect: "follow" })
-      .then(response => response.json())
-      .then(data => {
-        docentesData = data;
-        const input = document.getElementById("loginDocenteInput");
-        input.disabled = false;
-        input.placeholder = "Escriba su apellido para buscar...";
-      })
-      .catch(() => {
-        document.getElementById("loginDocenteInput").placeholder = "Error al cargar docentes";
-      });
-  }
-
   function chequearUsuario() {
     const apellido = localStorage.getItem("cef_apellido");
     const nombre = localStorage.getItem("cef_nombre");
@@ -218,7 +226,6 @@
     } else {
       document.getElementById("screen1").classList.remove("hidden");
       document.getElementById("screen2").classList.add("hidden");
-      cargarListaDocentes();
     }
   }
 
