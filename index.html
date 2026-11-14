@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Registro de Ausencias - CEF San Antonio de Padua</title>
-  <link rel="icon" type="image/png" href="icono.png">
-  <link rel="apple-touch-icon" href="icono.png">
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
     .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; position: relative; }
@@ -20,13 +18,17 @@
     .header-info { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; padding: 10px; border-radius: 6px; margin-bottom: 15px;}
     .change-user { background: #e74c3c; width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
     
-    /* Estilos para el buscador personalizado en celulares */
     .autocomplete-wrapper { position: relative; }
     .autocomplete-list { position: absolute; border: 1px solid #ccc; border-top: none; z-index: 999; top: 100%; left: 0; right: 0; background: #fff; max-height: 200px; overflow-y: auto; margin: 0; padding: 0; list-style: none; border-radius: 0 0 6px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .autocomplete-list li { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; }
     .autocomplete-list li:hover { background-color: #f1f1f1; }
     
     .instructivo-link { display: block; text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; color: #2980b9; text-decoration: none; font-weight: bold; }
+    
+    /* Estilos del cartel de mantenimiento */
+    .maintenance-msg { text-align: center; padding: 30px 20px; border: 2px solid #f39c12; background: #fdf2e9; border-radius: 8px; margin-top: 15px; }
+    .maintenance-msg h3 { color: #d35400; margin-top: 0; font-size: 20px; }
+    .maintenance-btn { display: inline-block; margin-top: 20px; padding: 12px 20px; background-color: #3498db; color: white; text-decoration: none; font-weight: bold; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -34,6 +36,16 @@
 <div class="container">
   <h2>Registro de Novedades y Ausencias</h2>
   
+  <!-- PANTALLA DE MANTENIMIENTO -->
+  <div id="maintenanceScreen" class="hidden">
+    <div class="maintenance-msg">
+      <h3>🛠️ Sistema en Mantenimiento</h3>
+      <p>Estamos realizando ajustes en la base de datos.</p>
+      <p>Por el momento, por favor comunique su novedad de forma directa a la Secretaría.</p>
+      <a href="mailto:secretariasecundaria@cef-sanantonio-pad.edu.ar" class="maintenance-btn">Enviar correo a Secretaría</a>
+    </div>
+  </div>
+
   <div id="screen1">
     <p style="font-size: 14px;">Identifíquese para usar el registro. Sus datos quedarán guardados en este dispositivo.</p>
     <label>Busque y seleccione su nombre</label>
@@ -92,27 +104,39 @@
     </div>
   </div>
 
-  <a href="https://docs.google.com/document/d/1tw7IHf2ocXgmhPdLGhI9QkKkkJ7TaPxZALZ2O0TegEs/edit?usp=drivesdk" target="_blank" class="instructivo-link">📖 Ver Instructivo de uso</a>
+  <a href="https://docs.google.com/document/d/1tw7IHf2ocXgmhPdLGhI9QkKkkJ7TaPxZALZ2O0TegEs/edit?usp=drivesdk" target="_blank" class="instructivo-link" id="linkInstructivo">📖 Ver Instructivo de uso</a>
 </div>
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2ORiudvzlJilaY88XrrbU6xB4zclct76EauvLg_8hN23QfHAaB0UlSUG7PmlZ6EyQmw/exec";
+  
+  // =========================================================================
+  // MODO MANTENIMIENTO: Cambiar a 'true' para cerrar el sistema temporalmente
+  // =========================================================================
+  const EN_MANTENIMIENTO = false; 
+
   let docentesData = []; 
   let docenteSeleccionado = null;
 
   document.addEventListener("DOMContentLoaded", () => { 
-    chequearUsuario(); 
-    cargarValoresPorDefecto();
-    configurarEventos();
+    if (EN_MANTENIMIENTO) {
+      document.getElementById("screen1").classList.add("hidden");
+      document.getElementById("screen2").classList.add("hidden");
+      document.getElementById("successScreen").classList.add("hidden");
+      document.getElementById("linkInstructivo").classList.add("hidden");
+      document.getElementById("maintenanceScreen").classList.remove("hidden");
+    } else {
+      chequearUsuario(); 
+      cargarValoresPorDefecto();
+      configurarEventos();
+    }
   });
 
   function configurarEventos() {
-    // Sincronizar fecha inicio con fecha fin
     document.getElementById("fechaInicio").addEventListener("change", function() {
       document.getElementById("fechaFin").value = this.value;
     });
 
-    // Buscador personalizado
     const input = document.getElementById("loginDocenteInput");
     const list = document.getElementById("autocompleteList");
 
@@ -148,7 +172,6 @@
       });
     });
 
-    // Cerrar lista si se hace clic afuera
     document.addEventListener("click", function(e) {
       if (e.target !== input) {
         list.classList.add("hidden");
@@ -156,7 +179,6 @@
     });
   }
 
-  // Quita acentos y pasa a minúsculas
   function normalizarTexto(texto) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   }
@@ -229,9 +251,9 @@
       apellido: localStorage.getItem("cef_apellido"),
       nombre: localStorage.getItem("cef_nombre"),
       fechaInicio: document.getElementById("fechaInicio").value,
-      horaInicio: "N/A", // Se mantiene internamente para no desarmar el Google Sheets
+      horaInicio: "N/A", 
       fechaFin: document.getElementById("fechaFin").value,
-      horaFin: "N/A",    // Se mantiene internamente para no desarmar el Google Sheets
+      horaFin: "N/A", 
       motivo: document.getElementById("motivo").value,
       detalle: document.getElementById("detalle").value,
       actividades: document.getElementById("actividades").value,
